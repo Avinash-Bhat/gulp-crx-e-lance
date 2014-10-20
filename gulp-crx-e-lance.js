@@ -144,19 +144,22 @@ module.exports= (function pack(options) {
 			return
 		}
 
-		var self= this
+		var self= this,
+		  await= doneAwait()
 		options.tmp(function(err, tmp){
 
-			var destFilename= path.join(options.dest, path.basename(file.path))
 			options.input= path.join(path.dirname(file.path), '.' + path.basename(file.path))
-			options.output= destFilename
 
 			if (err) {
 				cb(new gutil.PluginError('gulp-crx-e-lance', err, {fileName: file.path}))
 				return
 			}
 
-			fs.writeFile(options.input, file.contents, doneAwait())
+			var destFilename= path.join(tmp, file.path)
+			mkdirp(path.basename(destFilename), function(err){
+				fs.writeFile(destFilename, file.contents, await)
+			})
+
 		})
 	}).on('end', function(){
 		function wait(err, ok){
