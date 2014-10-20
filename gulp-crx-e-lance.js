@@ -77,7 +77,7 @@ module.exports= (function pack(options) {
 			base= undefined
 		else
 			base= [base]
-		mktmpdir('gulp-crx-cell-lance', base, sendAwaits)
+		mktmpdir('gulp-crx-e-lance', base, sendAwaits)
 	}
 
 
@@ -99,6 +99,40 @@ module.exports= (function pack(options) {
 	}
 
 	var awaitDone= []
+	function doneAwait(){
+		var _cb,
+		  _err,
+		  _ok
+
+		awaitDone.push(function(cb){
+			if(_err || _ok){
+				// finish
+				cb(_err, _ok)
+				_cb= null
+				_err= null
+				_ok= null
+			}else{
+				// cb when ready
+				_cb= cb
+			}
+		})
+
+		// resolve handler
+		function cb(err, ok){
+			if(_cb){
+				_cb(err, ok)
+				_cb= null
+				return
+			}
+			if(!_cb && !_err && !_ok){
+				throw new Error('freaky weird gulp-crx-e-lance state')
+			}
+			_err= err
+			_ok= ok
+		}
+
+		return cb
+	}
 	return through.obj(function (file, enc, cb) {
 		if (file.isNull()) {
 			cb(null, file)
@@ -106,7 +140,7 @@ module.exports= (function pack(options) {
 		}
 
 		if (file.isStream()) {
-			cb(new gutil.PluginError('gulp-vulcanize', 'Streaming not supported'))
+			cb(new gutil.PluginError('gulp-crx-e-lance', 'Streaming not supported'))
 			return
 		}
 
@@ -118,47 +152,11 @@ module.exports= (function pack(options) {
 			options.output= destFilename
 
 			if (err) {
-				cb(new gutil.PluginError('gulp-vulcanize', err, {fileName: file.path}))
+				cb(new gutil.PluginError('gulp-crx-e-lance', err, {fileName: file.path}))
 				return
 			}
 
-			fs.writeFileSync(options.input, file.contents)
-			vulcanize.processDocument()
-			fs.unlinkSync(options.input)
-
-			fs.readFile(destFilename, function (err, data) {
-				if (err) {
-					cb(new gutil.PluginError('gulp-vulcanize', err, {fileName: file.path}))
-					return
-				}
-
-				var html= data
-
-				fs.readFile(gutil.replaceExtension(destFilename, '.js'), function (err, data) {
-					if (err && err.code !== 'ENOENT') {
-						cb(new gutil.PluginError('gulp-vulcanize', err, {fileName: file.path}))
-						return
-					}
-
-					self.push(new gutil.File({
-						cwd: file.cwd,
-						base: file.base,
-						path: file.path,
-						contents: html
-					}))
-
-					if (data) {
-						self.push(new gutil.File({
-							cwd: file.cwd,
-							base: file.base,
-							path: gutil.replaceExtension(file.path, '.js'),
-							contents: data
-						}))
-					}
-
-					cb()
-				})
-			})
+			fs.writeFile(options.input, file.contents, doneAwait())
 		})
 	}).on('end', function(){
 		function wait(err, ok){
