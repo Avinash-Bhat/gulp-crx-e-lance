@@ -99,7 +99,7 @@ module.exports= (function pack(options) {
 		sendAwaits(new TypeError('unexpected type for `cleanup` parameter'))
 	}
 
-	var awaitDone= []
+	var awaitDone= [],
 	options.done= function(cb){
 		awaitDone.push(cb)
 	}
@@ -123,50 +123,7 @@ module.exports= (function pack(options) {
 			var destFilename= path.join(options.dest, path.basename(file.path))
 			options.input= path.join(path.dirname(file.path), '.' + path.basename(file.path))
 			options.output= destFilename
-
-			if (err) {
-				cb(new gutil.PluginError('gulp-vulcanize', err, {fileName: file.path}))
-				return
-			}
-
-			fs.writeFileSync(options.input, file.contents)
-			vulcanize.processDocument()
-			fs.unlinkSync(options.input)
-
-			fs.readFile(destFilename, function (err, data) {
-				if (err) {
-					cb(new gutil.PluginError('gulp-vulcanize', err, {fileName: file.path}))
-					return
-				}
-
-				var html= data
-
-				fs.readFile(gutil.replaceExtension(destFilename, '.js'), function (err, data) {
-					if (err && err.code !== 'ENOENT') {
-						cb(new gutil.PluginError('gulp-vulcanize', err, {fileName: file.path}))
-						return
-					}
-
-					self.push(new gutil.File({
-						cwd: file.cwd,
-						base: file.base,
-						path: file.path,
-						contents: html
-					}))
-
-					if (data) {
-						self.push(new gutil.File({
-							cwd: file.cwd,
-							base: file.base,
-							path: gutil.replaceExtension(file.path, '.js'),
-							contents: data
-						}))
-					}
-
-					cb()
-				})
-			})
 		})
 	}).on('end', function(){
-	})
+	])
 })
