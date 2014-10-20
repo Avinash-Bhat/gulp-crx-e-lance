@@ -84,28 +84,21 @@ module.exports= (function pack(options) {
 	var cleanup
 	if(options.cleanup instanceof Function){
 		cleanup= options.cleanup
-	}else if(options.cleanup === true){
+	}else if(options.cleanup === true || options.cleanup === false){
+		// default cleanup
+		options.cleanup= true
 		cleanup= function(err){
-			if(options.cleanup){
-				options.tmp(function(err,ok){
-					if(err)
-						return
-					fs.rmdir(ok)
-				})
-			}
+			options.tmp(function(err,ok){
+				if(err)
+					return
+				fs.rmdir(ok)
+			})
 		}
-	}else if(options.cleanup === false){
 	}else if(options.cleanup){
 		sendAwaits(new TypeError('unexpected type for `cleanup` parameter'))
 	}
 
 	var awaitDone= []
-	options.done= function(cb){
-		awaitDone.push(cb)
-	}
-
-	if(cleanup)
-		awaitDone.push(cleanup)
 	return through.obj(function (file, enc, cb) {
 		if (file.isNull()) {
 			cb(null, file)
@@ -168,5 +161,14 @@ module.exports= (function pack(options) {
 			})
 		})
 	}).on('end', function(){
+		function wait(err, ok){
+			if(awaitDone.length){
+				awaitDone.pop()(wait)
+			}else{
+				if(options.cleanup)
+					cleanup()
+			}
+		}
+		wait()
 	})
 })
