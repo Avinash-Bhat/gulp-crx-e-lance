@@ -7,27 +7,6 @@ var through= require('through2')
 var mkdirp= require('mkdirp')
 var crx= require('crx')
 
-function keygen(dir, cb) {
-	dir = resolve(cwd, dir)
-
-	var key = join(dir, "key.pem")
-
-	fs.exists(key, function(exists) {
-		if (exists) return cb && typeof(cb) == "function" && cb()
-
-		var pubPath = key + ".pub"
-			, command = "ssh-keygen -N '' -b 1024 -t rsa -f key.pem"
-
-		exec(command, {cwd: dir}, function(err) {
-			if (err) throw err
-
-			// TODO: find a way to prevent .pub output
-			fs.unlink(pubPath)
-			cb && typeof(cb) == "function" && cb()
-		})
-	})
-}
-
 
 var _crx= '.crx'
 
@@ -133,6 +112,50 @@ module.exports= (function pack(options) {
 
 		return cb
 	}
+
+	var keyDone= doneAwait()
+	if(options.key){
+		var key= options.key
+		options.key= function(cb){
+			keyDone(undefined, key)
+		}
+	}else{
+		var keyfile= options.keyfile|| 'key.pem'
+		fs.exists(keyfile, function(exists) {
+			function haveFile(file){
+				fs.readFile(file, function(err, contents){
+					if(!err)
+						key= contents
+					options.key= contents
+					keyDone(undefined, contents)
+				})
+				return
+
+			}
+			if (exists){
+				haveFile(keyfile)
+				return
+			}
+
+			var base= path.basename(keyfile)
+			mkdirp(base, function(){
+				var pubPath = keyfile + '.pub',
+				  command = 'ssh-keygen -N "" -b 2048 -t rsa -f ' + path.basename(key),
+				  keybase= path.dirname(keyfile)
+				exec(command, {cwd: keybase}, function(err) {
+					if (err)
+						throw err
+
+					haveFile(keyfile)
+
+					// TODO: find a way to prevent .pub output
+					// TODO: i kind of like it but i'm not sure where this'll land and if it's persistent enough
+					//fs.unlink(pubPath)
+				})
+			})
+		})
+	}
+
 	return through.obj(function (file, enc, cb) {
 		if (file.isNull()) {
 			cb(null, file)
@@ -162,12 +185,15 @@ module.exports= (function pack(options) {
 
 		})
 	}).on('end', function(){
+		function done(){
+			if(options.cleanup)
+				options.cleanup()
+		}
 		function wait(err, ok){
 			if(awaitDone.length){
 				awaitDone.pop()(wait)
 			}else{
-				if(options.cleanup)
-					cleanup()
+				done()
 			}
 		}
 		wait()
