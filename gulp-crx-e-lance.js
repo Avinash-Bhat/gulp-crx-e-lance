@@ -5,6 +5,7 @@ var path= require('path')
 var gutil= require('gulp-util')
 var through= require('through2')
 var mkdirp= require('mkdirp')
+var mktmpdir= require('mktmpdir')
 var crx= require('crx')
 
 
@@ -17,7 +18,7 @@ module.exports= (function pack(options) {
 		throw new gutil.PluginError('gulp-crx-e-lance', '`dest` or `name` required')
 	}
 	if(options.dest.endsWith(_crx)){
-		options.dest= options.name.substring(0, options.dest.length-_crx.length)
+		options.dest= options.dest.substring(0, options.dest.length-_crx.length)
 	}
 
 	function sendAwaits(awaits, err, ok){
@@ -26,10 +27,17 @@ module.exports= (function pack(options) {
 		for(var i in awaits){
 			awaits[i](err, ok)
 		}
+		awaits.splice(0)
+
 		options.tmp= function(cb){
 			cb(err, ok)
 		}
 	}
+        function awaitThunk(awaits){
+		return function(err, ok){
+			sendAwaits(awaits, err, ok)
+		}
+        }
 
 	var awaitTmp= [],
 	  tmp= options.tmp
@@ -38,10 +46,10 @@ module.exports= (function pack(options) {
 	}
 	function insureDir(err, dir){
 		if(err){
-			sendAwaits(err)
+			sendAwaits(awaitTmp, err)
 			return
 		}
-		mkdirp(dir, sendAwaits)
+		mkdirp(dir, awaitThunk(awaitTmp))
 	}
 
 	if(tmp instanceof Function){
@@ -56,7 +64,7 @@ module.exports= (function pack(options) {
 			base= undefined
 		else
 			base= [base]
-		mktmpdir('gulp-crx-e-lance', base, sendAwaits)
+		mktmpdir('gulp-crx-e-lance', base, awaitThunk(awaitTmp))
 	}
 
 
@@ -84,7 +92,7 @@ module.exports= (function pack(options) {
 		  _ok
 
 		awaitDone.push(function(cb){
-			if(_err || _ok){
+			if(_err !== undefined || _ok !== undefined){
 				// finish
 				cb(_err, _ok)
 				_cb= null
@@ -98,12 +106,13 @@ module.exports= (function pack(options) {
 
 		// resolve handler
 		function cb(err, ok){
+			var noCb = _cb === undefined
 			if(_cb){
 				_cb(err, ok)
 				_cb= null
 				return
 			}
-			if(!_cb && !_err && !_ok){
+			if(noCb && _err !== undefined && _ok !== undefined ){
 				throw new Error('freaky weird gulp-crx-e-lance state')
 			}
 			_err= err
