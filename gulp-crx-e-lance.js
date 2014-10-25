@@ -122,11 +122,6 @@ module.exports= (function pack(options) {
 		return cb
 	}
 
-	var time= doneAwait()
-	setTimeout(function(){
-		time()
-	}, 1000)
-
 	var keyDone= doneAwait()
 	if(options.key){
 		var key= options.key
