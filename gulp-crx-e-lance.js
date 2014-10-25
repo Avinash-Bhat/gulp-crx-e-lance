@@ -28,10 +28,6 @@ module.exports= (function pack(options) {
 			awaits[i](err, ok)
 		}
 		awaits.splice(0)
-
-		options.tmp= function(cb){
-			cb(err, ok)
-		}
 	}
         function awaitThunk(awaits){
 		return function(err, ok){
@@ -39,7 +35,11 @@ module.exports= (function pack(options) {
 		}
         }
 
-	var awaitTmp= [],
+	var awaitTmp= [function(err,ok){
+		options.tmp= function(cb){
+			cb(err, ok)
+		}
+	  }],
 	  tmp= options.tmp
 	options.tmp= function(cb){
 		awaitTmp.push(cb)
@@ -180,16 +180,17 @@ module.exports= (function pack(options) {
 		  await= doneAwait()
 		options.tmp(function(err, tmp){
 
-			options.input= path.join(path.dirname(file.path), '.' + path.basename(file.path))
-
 			if (err) {
 				cb(new gutil.PluginError('gulp-crx-e-lance', err, {fileName: file.path}))
 				return
 			}
 
-			var destFilename= path.join(tmp, file.path)
-			mkdirp(path.basename(destFilename), function(err){
-				fs.writeFile(destFilename, file.contents, await)
+			var destFilename= path.join(tmp, path.relative(process.cwd(), file.path))
+			mkdirp(path.dirname(destFilename), function(err){
+				fs.writeFile(destFilename, file.contents, function(err){
+					await(err)
+					cb()
+				})
 			})
 
 		})
