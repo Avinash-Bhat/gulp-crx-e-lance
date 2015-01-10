@@ -78,6 +78,7 @@ module.exports= (function pack(options) {
 			options.tmp(function(err,ok){
 				if(err)
 					return
+//console.log('cleanup', ok)
 				fs.rmdir(ok)
 			})
 		}
@@ -136,25 +137,30 @@ module.exports= (function pack(options) {
 					if(!err)
 						key= contents
 					options.key= contents
+//console.log('key', contents !== undefined)
 					keyDone(undefined, contents)
 				})
 				return
 
 			}
 			if (exists){
+//console.log('keyfile!')
 				haveFile(keyfile)
 				return
 			}
 
 			var base= path.basename(keyfile)
+//console.log('mkdir',base)
 			mkdirp(base, function(){
 				var pubPath = keyfile + '.pub',
 				  command = 'ssh-keygen -N "" -b 2048 -t rsa -f ' + path.basename(key),
 				  keybase= path.dirname(keyfile)
+//console.log('exec', command)
 				exec(command, {cwd: keybase}, function(err) {
 					if (err)
 						throw err
 
+//console.log('nokey')
 					haveFile(keyfile)
 
 					// TODO: find a way to prevent .pub output
@@ -167,26 +173,36 @@ module.exports= (function pack(options) {
 
 	return through.obj(function (file, enc, cb) {
 		if (file.isNull()) {
+//console.log('nullfile')
 			cb(null, file)
 			return
 		}
 
 		if (file.isStream()) {
+//console.log('streamfile')
 			cb(new gutil.PluginError('gulp-crx-e-lance', 'Streaming not supported'))
 			return
 		}
+//console.log('file', file)
 
 		var self= this,
 		  await= doneAwait()
 		options.tmp(function(err, tmp){
 
+
+//console.log('got tmp', process.cwd(), file.path, options.input)
+
 			if (err) {
+//console.log('never tmped', err)
+//console.log('but tmp', tmp)
 				cb(new gutil.PluginError('gulp-crx-e-lance', err, {fileName: file.path}))
 				return
 			}
 
 			var destFilename= path.join(tmp, path.relative(process.cwd(), file.path))
+//console.log('desting', destFilename, path.dirname(destFilename))
 			mkdirp(path.dirname(destFilename), function(err){
+//console.log('mkdir', destFilename, file.contents)
 				fs.writeFile(destFilename, file.contents, function(err){
 					await(err)
 					cb()
@@ -195,11 +211,14 @@ module.exports= (function pack(options) {
 
 		})
 	}).on('end', function(){
+//console.log('end')
 		function done(){
+//console.log('done')
 			if(options.cleanup)
 				options.cleanup()
 		}
 		function wait(err, ok){
+//console.log('WAIT',err, ok)
 			if(awaitDone.length){
 				awaitDone.pop()(wait)
 			}else{
