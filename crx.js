@@ -13,6 +13,15 @@ var Crx= function(){
 	}
 };
 
+Crx.mixin= function(o){
+	for(var p of Object.keys(Crx.prototype)){
+		var prop= Object.getOwnPropertyDescriptor(Crx.prototype, p)
+		if(o[p] === undefined){
+			Object.defineProperty(o, p, prop)
+		}
+	}
+}
+
 function defaulter(o, slot, gen){
 	Object.defineProperty(o, slot, {
 		configurable: true,
